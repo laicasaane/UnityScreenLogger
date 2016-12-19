@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 namespace AClockworkBerry
@@ -236,7 +236,7 @@ namespace AClockworkBerry
                     break;
             }
 
-            GUILayout.BeginArea(new Rect(x, y, w, h), styleContainer);
+            GUILayout.BeginArea(new Rect((int) x, (int) y, w, h), styleContainer);
 
             if (AdvancedButtons)
             {
