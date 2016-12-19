@@ -1,16 +1,27 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using System;
 
 namespace AClockworkBerry
 {
-
     public class ScreenLogger : MonoBehaviour
     {
+        private const string Space = " ";
+        private const string ScrollToTop = "▬";
+        private const string ScrollToBottom = "▬";
+        private const string ScrollUp = "▲";
+        private const string ScrollDown = "▼";
+        private const string ClearView = "CLEAR";
+
         public static bool IsPersistent = true;
 
         private static ScreenLogger instance;
         private static bool instantiated = false;
+
+        private Vector2 scrollPosition = Vector2.zero;
+        private bool manuallyScroll = false;
+
+        private GUILayoutOption buttonWidth;
+        private GUILayoutOption buttonHeight;
 
         class LogMessage
         {
@@ -34,7 +45,7 @@ namespace AClockworkBerry
 
         public bool ShowLog = true;
         public bool ShowInEditor = true;
-
+        public bool AdvancedButtons = false;
 
         [Tooltip("Height of the log area as a percentage of the screen height")]
         [Range(0.3f, 1.0f)]
@@ -49,6 +60,8 @@ namespace AClockworkBerry
         public LogAnchor AnchorPosition = LogAnchor.BottomLeft;
 
         public int FontSize = 14;
+
+        public float ScrollSpeed = 10f;
 
         [Range(0f, 01f)]
         public float BackgroundOpacity = 0.5f;
@@ -79,7 +92,7 @@ namespace AClockworkBerry
             {
                 if (instantiated) return instance;
 
-                instance = GameObject.FindObjectOfType(typeof(ScreenLogger)) as ScreenLogger;
+                instance = FindObjectOfType<ScreenLogger>();
 
                 // Object not found, we create a new one
                 if (instance == null)
@@ -87,9 +100,9 @@ namespace AClockworkBerry
                     // Try to load the default prefab
                     try
                     {
-                        instance = Instantiate(Resources.Load("ScreenLoggerPrefab", typeof(ScreenLogger))) as ScreenLogger;
+                        instance = Instantiate(Resources.Load<ScreenLogger>("ScreenLoggerPrefab"));
                     }
-                    catch (Exception e)
+                    catch
                     {
                         Debug.Log("Failed to load default Screen Logger prefab...");
                         instance = new GameObject("ScreenLogger", typeof(ScreenLogger)).GetComponent<ScreenLogger>();
@@ -113,12 +126,12 @@ namespace AClockworkBerry
 
         public void Awake()
         {
-            ScreenLogger[] obj = GameObject.FindObjectsOfType<ScreenLogger>();
+            ScreenLogger[] obj = FindObjectsOfType<ScreenLogger>();
 
             if (obj.Length > 1)
             {
                 Debug.Log("Destroying ScreenLogger, already exists...");
-                
+
                 destroying = true;
 
                 Destroy(gameObject);
@@ -145,6 +158,7 @@ namespace AClockworkBerry
 
             styleText = new GUIStyle();
             styleText.fontSize = FontSize;
+            styleText.wordWrap = true;
         }
 
         void OnEnable()
@@ -189,6 +203,12 @@ namespace AClockworkBerry
             if (!ShowLog) return;
             if (!ShowInEditor && Application.isEditor) return;
 
+            if (AdvancedButtons && (buttonWidth == null || buttonHeight == null))
+            {
+                buttonWidth = GUILayout.Width(25f);
+                buttonHeight = GUILayout.Height(25f);
+            }
+
             float w = (Screen.width - 2 * Margin) * Width;
             float h = (Screen.height - 2 * Margin) * Height;
             float x = 1, y = 1;
@@ -218,6 +238,53 @@ namespace AClockworkBerry
 
             GUILayout.BeginArea(new Rect(x, y, w, h), styleContainer);
 
+            if (AdvancedButtons)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.BeginVertical(buttonWidth);
+
+                if (GUILayout.Button(ScrollToTop, buttonHeight))
+                {
+                    manuallyScroll = true;
+                    scrollPosition.y = 0;
+                }
+
+                GUILayout.Space(10f);
+
+                if (GUILayout.RepeatButton(ScrollUp, buttonHeight))
+                {
+                    manuallyScroll = true;
+                    scrollPosition.y -= ScrollSpeed;
+                }
+
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.RepeatButton(ScrollDown, buttonHeight))
+                {
+                    manuallyScroll = true;
+                    scrollPosition.y += ScrollSpeed;
+                }
+
+                GUILayout.Space(10f);
+
+                if (GUILayout.Button(ScrollToBottom, buttonHeight))
+                {
+                    manuallyScroll = false;
+                }
+
+                if (!manuallyScroll)
+                {
+                    scrollPosition.y = int.MaxValue;
+                }
+
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
+            }
+
+            scrollPosition = GUILayout.BeginScrollView(scrollPosition, false, false);
+
+            var started = false;
+
             foreach (LogMessage m in queue)
             {
                 switch (m.Type)
@@ -241,7 +308,24 @@ namespace AClockworkBerry
                         break;
                 }
 
+                if (!m.Message.StartsWith(Space) && started)
+                    GUILayout.Space(FontSize);
+
                 GUILayout.Label(m.Message, styleText);
+                started = true;
+            }
+
+            GUILayout.EndScrollView();
+
+            if (AdvancedButtons)
+            {
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
+
+                if (GUILayout.Button(ClearView, buttonHeight))
+                {
+                    queue.Clear();
+                }
             }
 
             GUILayout.EndArea();
@@ -269,7 +353,7 @@ namespace AClockworkBerry
             string[] trace = stackTrace.Split(new char[] { '\n' });
 
             foreach (string t in trace)
-                if (t.Length != 0) queue.Enqueue(new LogMessage("  " + t, type));
+                if (t.Length != 0) queue.Enqueue(new LogMessage("    " + t, type));
         }
 
         public void InspectorGUIUpdated()

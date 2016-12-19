@@ -10,7 +10,7 @@ namespace AClockworkBerry
         [MenuItem("GameObject/Create Other/Screen Logger")]
         static void AddScreenLogger()
         {
-            if (GameObject.FindObjectOfType<ScreenLogger>() == null)
+            if (FindObjectOfType<ScreenLogger>() == null)
             {
                 GameObject gameObject = new GameObject();
                 gameObject.name = "ScreenLogger";
